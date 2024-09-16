@@ -4,7 +4,7 @@ const pool = mariadb.createPool({
   host: 'localhost',
   user: 'root',
   password: 'root',
-  database: 'buddy_db',
+  database: 'wearable_db',
   connectionLimit: 10,
 });
 

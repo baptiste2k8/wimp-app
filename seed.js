@@ -1,49 +1,41 @@
 const mariadb = require('mariadb');
-const bcrypt = require('bcrypt');
 
 const pool = mariadb.createPool({
   host: 'localhost',
   user: 'root',
   password: 'root',
-  connectionLimit: 10,
+  connectionLimit: 1000,
 });
 
-const users = [
-  {
-    userName: 'Administrator',
-    userEmail: 'baptiste2k17@gmail.com',
-    userPassword: 'password123',
-    userAge: 22,
-  },
-  {
-    userName: 'Jean Baptiste M',
-    userEmail: 'baptiste2k8@gmail.com',
-    userPassword: 'password456',
-    userAge: 21,
-  },
-  {
-    userName: 'Enos Mukiza',
-    userEmail: 'mukizaenos@gmail.com',
-    userPassword: 'password789',
-    userAge: 22,
-  },
+const fitbits = [
+  { 
+    clientId: '-',
+    timestamp: '2024-05-01 01:30:25',
+    heartRate: 170,
+  }, 
 ];
-
-const wimps = [
-  {
-    heartbeat: 170,
-    receivedOn: '2024-04-04 18:30:25',
-    buddyPayload: 'move/0.2/0.4',
-    buddyPayloadExecutionStatus: null,
-    notificationMessage: null,
-    notificationDeliveryStatus: null,
+const fitbitAccelerometerData = [
+  { 
+    clientId: '-',
+    timestamp: '2024-05-01 01:30:25',
+    accX: 2.6049699783325195,
+    accY: -6.225113868713379,
+    accZ: 7.642524719238281,
+  }, 
+];
+const fitbitLocationData = [
+  { 
+    clientId: '-',
+    timestamp: '2024-05-01 01:30:25',
+    latitude: 45.462203333333335,
+    longitude: -73.54410166666666,
   }, 
 ];
 async function createDatabase() {
   let connection;
   try {
     connection = await pool.getConnection();
-    await connection.query('CREATE DATABASE IF NOT EXISTS buddy_db');
+    await connection.query('CREATE DATABASE IF NOT EXISTS wearable_db');
     console.log('Database created successfully.');
   } catch (error) {
     console.error('Error creating database:', error);
@@ -54,116 +46,163 @@ async function createDatabase() {
   }
 }
 
-async function createUserTable() {
+async function createFitbitTable() {
   let connection;
   try {
     connection = await pool.getConnection();
-    await connection.query('USE buddy_db');
+    await connection.query('USE wearable_db');
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        userUniqueId INT NOT NULL AUTO_INCREMENT,
-        userName VARCHAR(255),
-        userEmail VARCHAR(255),
-        userPassword VARCHAR(255),
-        userAge INT,
-        CONSTRAINT user_pk PRIMARY KEY (userUniqueId)
+      CREATE TABLE IF NOT EXISTS fitbit_data (
+        readingUniqueId INT NOT NULL AUTO_INCREMENT,
+        clientId VARCHAR(8),
+        timestamp DATETIME,
+        heartRate INT,
+        CONSTRAINT fitbitdata_pk PRIMARY KEY (readingUniqueId)
 
       )
     `);
-    console.log('Users table created successfully.');
+    console.log('fitbit_data table created successfully.');
   } catch (error) {
-    console.error('Error creating users table:', error);
+    console.error('Error creating fitbit_data table:', error);
   } finally {
     if (connection) {
       connection.release();
     }
   }
 }
-async function createWimpTable() {
+
+async function createAccelatorTable() {
   let connection;
   try {
     connection = await pool.getConnection();
-    await connection.query('USE buddy_db');
+    await connection.query('USE wearable_db');
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS wimps (
-        uniqueID INT NOT NULL AUTO_INCREMENT,
-        heartbeat INT, 
-        receivedOn DATETIME, 
-        buddyPayload VARCHAR(255),
-        buddyPayloadExecutionStatus VARCHAR(255),
-        notificationMessage VARCHAR(255),
-        notificationDeliveryStatus VARCHAR(255),
-        CONSTRAINT wimps_pk PRIMARY KEY (uniqueID)
+      CREATE TABLE IF NOT EXISTS fitbit_accelerometer (
+        readingUniqueId INT NOT NULL AUTO_INCREMENT,
+        clientId VARCHAR(8),
+        accX double,
+        accY double,
+        accZ double,
+        timestamp DATETIME,
+        CONSTRAINT AccelerometerData_pk PRIMARY KEY (readingUniqueId)
       )
     `);
-    console.log('Wimps table created successfully.');
+    console.log('fitbit_accelerometer table created successfully.');
   } catch (error) {
-    console.error('Error creating wimps table:', error);
+    console.error('Error creating fitbit_accelerometer table:', error);
   } finally {
     if (connection) {
       connection.release();
     }
   }
 }
-async function seedUsers() {
+async function createLocationTable() {
   let connection;
   try {
     connection = await pool.getConnection();
-    await connection.query('USE buddy_db');
-    await connection.query('DELETE FROM users');
-
-    for (const user of users) {
-      const hashedPassword = await bcrypt.hash(user.userPassword, 10);
-      await connection.query('INSERT INTO users (userName, userEmail, userPassword, userAge) VALUES (?, ?, ?, ?)', [
-        user.userName,
-        user.userEmail,
-        hashedPassword,
-        user.userAge,
-      ]);
-    }
-
-    console.log('Users table seeded successfully.');
+    await connection.query('USE wearable_db');
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS fitbit_location (
+        readingUniqueId INT NOT NULL AUTO_INCREMENT,
+        clientId VARCHAR(8),
+        latitude double,
+        longitude double,
+        timestamp DATETIME,
+        CONSTRAINT locationData_pk PRIMARY KEY (readingUniqueId)
+      )
+    `);
+    console.log('fitbit_location table created successfully.');
   } catch (error) {
-    console.error('Error seeding users table:', error);
+    console.error('Error creating fitbit_location table:', error);
   } finally {
     if (connection) {
       connection.release();
     }
   }
 }
-async function seedwimps() {
+async function seedFitbits() {
   let connection;
   try {
     connection = await pool.getConnection();
-    await connection.query('USE buddy_db');
-    await connection.query('DELETE FROM wimps');
+    await connection.query('USE wearable_db');
+    await connection.query('DELETE FROM fitbit_data');
 
-    for (const wimp of wimps) {
-      await connection.query('INSERT INTO wimps (heartbeat, receivedOn,buddyPayload, buddyPayloadExecutionStatus, notificationMessage,notificationDeliveryStatus) VALUES (?, ?, ?, ?, ?,?)', [
-        wimp.heartbeat,
-        wimp.receivedOn,
-        wimp.buddyPayload,
-        wimp.buddyPayloadExecutionStatus,
-        wimp.notificationMessage,
-        wimp.notificationDeliveryStatus,
+    for (const record of fitbits) {
+      await connection.query('INSERT INTO fitbit_data (clientId,timestamp,heartRate) VALUES (?,?,?)', [
+        record.clientId,
+        record.timestamp,
+        record.heartRate
       ]);
     }
 
-    console.log('wimps table seeded successfully.');
+    console.log('fitbit table seeded successfully.');
   } catch (error) {
-    console.error('Error seeding wimps table:', error);
+    console.error('Error seeding fitbit table:', error);
   } finally {
     if (connection) {
       connection.release();
     }
   }
 }
+async function seedFitbitAcc() {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query('USE wearable_db');
+    await connection.query('DELETE FROM fitbit_accelerometer');
+
+    for (const record of fitbitAccelerometerData) {
+      await connection.query('INSERT INTO fitbit_accelerometer (clientId, accX, accY,accZ,timestamp) VALUES (?,?,?,?,?)', [
+        record.clientId,
+        record.accX,
+        record.accY,
+        record.accZ,
+        record.timestamp
+      ]);
+    }
+    console.log('fitbit table seeded successfully.');
+  } catch (error) {
+    console.error('Error seeding fitbit table:', error);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
+async function seedFitbitLocation() {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query('USE wearable_db');
+    await connection.query('DELETE FROM fitbit_location');
+
+    for (const record of fitbitLocationData) {
+      await connection.query('INSERT INTO fitbit_location (clientId, latitude, longitude,timestamp) VALUES (?,?,?,?)', [
+        record.clientId,
+        record.latitude,
+        record.longitude,
+        record.timestamp
+      ]);
+    }
+    console.log('fitbit table seeded successfully.');
+  } catch (error) {
+    console.error('Error seeding fitbit table:', error);
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
 async function seedDatabase() {
   await createDatabase();
-  await createUserTable();
-  await createWimpTable();
-  await seedUsers();
-  await seedwimps();
+  await createFitbitTable();
+  await createAccelatorTable();
+  await createLocationTable();
+  await seedFitbits();
+  await seedFitbitAcc();
+  seedFitbitLocation();
   pool.end();
 }
 
